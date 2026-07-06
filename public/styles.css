@@ -259,7 +259,13 @@ body {
 }
 
 .photo-card {
-  margin: 0;
+  margin: 0 0 1.5rem;
+  padding-bottom: 1.25rem;
+  border-bottom: 1px solid rgba(0, 0, 0, 0.12);
+}
+
+.photo-card:last-child {
+  border-bottom: none;
 }
 
 .photo-card img {
@@ -274,10 +280,7 @@ body {
 .photo-link {
   display: block;
   text-decoration: none;
-}
-
-.photo-card figcaption {
-  margin-top: 0.4rem;
+  margin-top: 0.35rem;
 }
 
 .video-card {

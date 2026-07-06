@@ -82,25 +82,23 @@
     </template>
 
     <template id="photo-card-template">
-      <figure class="photo-card">
+      <article class="photo-card">
+        <h4 class="photo-title"></h4>
+        <p class="photo-date"></p>
         <a class="photo-link" href="#">
           <img alt="" loading="lazy" />
         </a>
-        <figcaption>
-          <p class="photo-title"></p>
-          <p class="photo-date"></p>
-        </figcaption>
-      </figure>
+      </article>
     </template>
 
     <template id="video-card-template">
       <article class="video-card">
+        <h4 class="video-title"></h4>
+        <p class="video-date"></p>
         <div class="video-frame">
           <video controls preload="metadata" playsinline></video>
         </div>
-        <h4 class="video-title"></h4>
         <p class="video-caption"></p>
-        <p class="video-date"></p>
       </article>
     </template>
 
