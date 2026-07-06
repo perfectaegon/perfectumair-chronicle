@@ -36,63 +36,52 @@ fi
 git remote set-url origin "${REPO_URL}.git"
 git push -u origin main
 
-# 6-7: List and delete chronicle services
+# 6: Use existing service (never delete — that wipes all uploaded content)
 echo ""
-echo "[render] Listing services..."
-SERVICES_JSON="$("${RENDER}" services -o json)"
-echo "${SERVICES_JSON}" | python3 -c "
-import sys, json
-data = json.load(sys.stdin)
-for item in data:
-    svc = item.get('service', item)
-    name = svc.get('name', '')
-    sid = svc.get('id', '')
-    if 'chronicle' in name.lower() or sid == '${OLD_SERVICE_ID}':
-        print(f\"{sid}\t{name}\")
-" | while IFS=$'\t' read -r sid name; do
-  echo "[render] Deleting ${name} (${sid})..."
-  "${RENDER}" services delete "${sid}" --confirm -o text 2>/dev/null || true
-done
-
-# 8: Create new service
-echo ""
-echo "[render] Creating ${SERVICE_NAME}..."
-CREATE_OUTPUT="$("${RENDER}" services create \
-  --name "${SERVICE_NAME}" \
-  --type web_service \
-  --repo "${REPO_URL}" \
-  --branch main \
-  --runtime ruby \
-  --plan free \
-  --build-command 'bundle install' \
-  --start-command 'bundle exec ruby server.rb' \
-  --health-check-path / \
-  --env-var "HOST=0.0.0.0" \
-  --env-var "FORCE_SSL=1" \
-  --env-var "SESSION_HOURS=168" \
-  --env-var "ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
-  --auto-deploy \
-  --confirm \
-  -o json)"
-
-NEW_SERVICE_ID="$(echo "${CREATE_OUTPUT}" | python3 -c "
-import sys, json
-d = json.load(sys.stdin)
-print(d.get('id') or d.get('service', {}).get('id', ''))
-" 2>/dev/null || true)"
-
-if [[ -z "${NEW_SERVICE_ID}" ]]; then
-  NEW_SERVICE_ID="$("${RENDER}" services -o json | python3 -c "
+echo "[render] Looking for existing ${SERVICE_NAME} service..."
+NEW_SERVICE_ID="$("${RENDER}" services -o json | python3 -c "
 import sys, json
 for item in json.load(sys.stdin):
     svc = item.get('service', item)
     if svc.get('name') == '${SERVICE_NAME}':
         print(svc['id'])
         break
-")"
+" 2>/dev/null || true)"
+
+if [[ -z "${NEW_SERVICE_ID}" ]]; then
+  echo "[render] Creating ${SERVICE_NAME}..."
+  CREATE_OUTPUT="$("${RENDER}" services create \
+    --name "${SERVICE_NAME}" \
+    --type web_service \
+    --repo "${REPO_URL}" \
+    --branch main \
+    --runtime ruby \
+    --plan starter \
+    --build-command 'bundle install' \
+    --start-command 'bundle exec ruby server.rb' \
+    --health-check-path / \
+    --env-var "HOST=0.0.0.0" \
+    --env-var "FORCE_SSL=1" \
+    --env-var "SESSION_HOURS=168" \
+    --env-var "ADMIN_PASSWORD=${ADMIN_PASSWORD}" \
+    --auto-deploy \
+    --confirm \
+    -o json)"
+  NEW_SERVICE_ID="$(echo "${CREATE_OUTPUT}" | python3 -c "
+import sys, json
+d = json.load(sys.stdin)
+print(d.get('id') or d.get('service', {}).get('id', ''))
+" 2>/dev/null || true)"
+else
+  echo "  Found existing service: ${NEW_SERVICE_ID}"
+  echo "  Deploying latest code without deleting service or data..."
 fi
 
 echo "  Service ID: ${NEW_SERVICE_ID}"
+
+echo ""
+echo "[render] Ensuring persistent storage..."
+bash "${ROOT}/bin/ensure-persistent-storage.sh" "${NEW_SERVICE_ID}" || true
 
 # 9: Wait for deploy
 echo ""

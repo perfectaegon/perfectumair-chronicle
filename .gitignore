@@ -1,4 +1,5 @@
 data/sessions.json
+data/posts.json
 data/uploads/*
 !data/uploads/.gitkeep
 .env

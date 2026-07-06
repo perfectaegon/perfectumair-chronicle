@@ -2,10 +2,14 @@ services:
   - type: web
     name: ok-mairr-chronicle
     runtime: ruby
-    plan: free
+    plan: starter
     buildCommand: bundle install
     startCommand: bundle exec ruby server.rb
     healthCheckPath: /
+    disk:
+      name: chronicle-data
+      mountPath: /opt/render/project/src/data
+      sizeGB: 1
     envVars:
       - key: HOST
         value: "0.0.0.0"

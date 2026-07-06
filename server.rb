@@ -11,9 +11,11 @@ require "open3"
 
 ROOT = File.expand_path(__dir__)
 PUBLIC_DIR = File.join(ROOT, "public")
-UPLOAD_DIR = File.join(ROOT, "data", "uploads")
-POSTS_FILE = File.join(ROOT, "data", "posts.json")
-SESSIONS_FILE = File.join(ROOT, "data", "sessions.json")
+DATA_DIR = ENV.fetch("DATA_DIR", File.join(ROOT, "data"))
+UPLOAD_DIR = File.join(DATA_DIR, "uploads")
+POSTS_FILE = File.join(DATA_DIR, "posts.json")
+POSTS_SEED = File.join(ROOT, "data", "posts.seed.json")
+SESSIONS_FILE = File.join(DATA_DIR, "sessions.json")
 PORT = Integer(ENV.fetch("PORT", 4568))
 HOST = ENV.fetch("HOST", "0.0.0.0")
 ADMIN_PASSWORD = ENV.fetch("ADMIN_PASSWORD", "chronicle2026")
@@ -66,9 +68,6 @@ MIME_TYPES = {
   ".js" => "application/javascript"
 }.freeze
 
-FileUtils.mkdir_p(UPLOAD_DIR)
-FileUtils.mkdir_p(File.dirname(POSTS_FILE))
-
 def load_json(path, fallback)
   return fallback unless File.exist?(path)
 
@@ -80,6 +79,19 @@ end
 def save_json(path, payload)
   File.write(path, JSON.pretty_generate(payload))
 end
+
+def ensure_data_store!
+  FileUtils.mkdir_p(UPLOAD_DIR)
+  return if File.exist?(POSTS_FILE)
+
+  if File.exist?(POSTS_SEED)
+    FileUtils.cp(POSTS_SEED, POSTS_FILE)
+  else
+    save_json(POSTS_FILE, [])
+  end
+end
+
+ensure_data_store!
 
 def load_posts
   load_json(POSTS_FILE, [])
