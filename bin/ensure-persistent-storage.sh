@@ -25,7 +25,15 @@ echo "=== Ensure persistent storage for ok.mairr Chronicle ==="
 echo ""
 
 echo "[render] Upgrading service to Starter plan (required for persistent disk)..."
-"${RENDER}" services update "${SERVICE_ID}" --plan starter --confirm -o text
+if ! "${RENDER}" services update "${SERVICE_ID}" --plan starter --confirm -o text; then
+  echo ""
+  echo "Could not upgrade automatically. Add a payment method, then in the Render Dashboard:"
+  echo "  1. Open https://dashboard.render.com/web/${SERVICE_ID}"
+  echo "  2. Settings → Instance Type → choose Starter"
+  echo "  3. Disks → Add Disk → mount path: ${MOUNT_PATH}, size: 1 GB"
+  echo "  4. Manual Deploy → Deploy latest commit"
+  echo ""
+fi
 
 echo ""
 echo "[render] Checking for existing disk..."
