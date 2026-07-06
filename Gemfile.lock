@@ -10,7 +10,7 @@ DEPENDENCIES
   webrick
 
 RUBY VERSION
-   ruby 2.6.10p210
+   ruby 3.2.6p0
 
 BUNDLED WITH
-   1.17.2
+   2.5.22
