@@ -70,10 +70,7 @@ function renderPhoto(post) {
   img.src = `/uploads/${post.filename}`;
   img.alt = post.title || post.caption || "Photograph";
 
-  const photoLink = node.querySelector(".photo-link");
-  photoLink.href = `/photo.html?id=${post.id}`;
-  photoLink.target = "_blank";
-  photoLink.rel = "noopener noreferrer";
+  node.querySelector(".photo-link").href = `/photo.html?id=${post.id}`;
   node.querySelector(".photo-title").textContent = post.title;
   node.querySelector(".photo-date").textContent = formatShortDate(post.published_at);
 

@@ -4,12 +4,8 @@ const byline = document.getElementById("photo-byline");
 const image = document.getElementById("photo-image");
 const download = document.getElementById("photo-download");
 const page = document.getElementById("photo-page");
-const view = document.getElementById("photo-view");
 const notFound = document.getElementById("not-found");
 const closeButton = document.getElementById("photo-close");
-
-let touchStartY = 0;
-let touchStartX = 0;
 
 function formatDate(iso) {
   const date = new Date(iso);
@@ -33,33 +29,6 @@ function closePhoto() {
   }
 
   window.location.href = "/";
-}
-
-function setupSwipeToClose() {
-  view.addEventListener(
-    "touchstart",
-    (event) => {
-      if (event.touches.length !== 1) return;
-      touchStartY = event.touches[0].clientY;
-      touchStartX = event.touches[0].clientX;
-    },
-    { passive: true }
-  );
-
-  view.addEventListener(
-    "touchend",
-    (event) => {
-      if (event.changedTouches.length !== 1) return;
-
-      const deltaY = event.changedTouches[0].clientY - touchStartY;
-      const deltaX = event.changedTouches[0].clientX - touchStartX;
-
-      if (deltaY > 80 && Math.abs(deltaX) < 60) {
-        closePhoto();
-      }
-    },
-    { passive: true }
-  );
 }
 
 async function loadPhoto() {
@@ -100,5 +69,4 @@ async function loadPhoto() {
 }
 
 closeButton.addEventListener("click", closePhoto);
-setupSwipeToClose();
 loadPhoto();
