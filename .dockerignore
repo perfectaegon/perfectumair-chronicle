@@ -1,0 +1,6 @@
+.git
+.env
+data/sessions.json
+data/uploads/*
+!data/uploads/.gitkeep
+.DS_Store
