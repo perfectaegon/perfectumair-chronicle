@@ -16,7 +16,7 @@ if ! gh auth status >/dev/null 2>&1; then
   gh auth login --hostname github.com --git-protocol https --web --skip-ssh-key
 fi
 
-REPO_NAME="${1:-okmair-chronicle}"
+REPO_NAME="${1:-ok-mairr-chronicle}"
 
 if ! git remote get-url origin >/dev/null 2>&1; then
   gh repo create "$REPO_NAME" --public --source=. --remote=origin --push

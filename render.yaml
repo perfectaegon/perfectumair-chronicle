@@ -1,6 +1,6 @@
 services:
   - type: web
-    name: okmair-chronicle
+    name: ok-mairr-chronicle
     runtime: ruby
     plan: free
     buildCommand: bundle install

@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+export PATH="${HOME}/.local/bin:${PATH}"
+
+OLD_SERVICE_ID="${1:-srv-d95ouovavr4c73ank0ng}"
+ADMIN_PASS="$(python3 -c "import secrets; print(secrets.token_urlsafe(16))")"
+
+echo "Deleting old Render service (if it exists)..."
+render services delete "$OLD_SERVICE_ID" --confirm -o text 2>/dev/null || true
+
+echo "Creating ok-mairr-chronicle on Render..."
+render services create \
+  --name ok-mairr-chronicle \
+  --type web_service \
+  --repo https://github.com/perfectaegon/ok-mairr-chronicle \
+  --branch main \
+  --runtime ruby \
+  --plan free \
+  --build-command 'bundle install' \
+  --start-command 'bundle exec ruby server.rb' \
+  --health-check-path / \
+  --env-var "HOST=0.0.0.0" \
+  --env-var "FORCE_SSL=1" \
+  --env-var "SESSION_HOURS=168" \
+  --env-var "ADMIN_PASSWORD=${ADMIN_PASS}" \
+  --auto-deploy \
+  --confirm \
+  -o json
+
+echo ""
+echo "Site URL:  https://ok-mairr-chronicle.onrender.com"
+echo "Admin URL: https://ok-mairr-chronicle.onrender.com/admin"
+echo "Password:  ${ADMIN_PASS}"
+echo ""
+echo "Waiting for deploy (may take 2-3 minutes)..."
+SERVICE_ID="$(render services -o json | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[0]['service']['id'])")"
+render deploys create "$SERVICE_ID" --confirm --wait -o text
+echo "Done. Open https://ok-mairr-chronicle.onrender.com"
