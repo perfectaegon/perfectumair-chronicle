@@ -1,13 +1,5 @@
 [
   {
-    "id": "welcome-article-001",
-    "type": "article",
-    "title": "Welcome to The ok.mairr Chronicle",
-    "body": "This is your personal newspaper — a place to publish what you write, photograph, and film for the world to read and watch.\n\nSign in at the Editor's Desk to post your first story, upload a photograph, or share a video. Every edition begins with a single line of ink.\n\n— ok.mairr, Editor-in-Chief",
-    "excerpt": "Your personal newspaper for stories, photographs, and moving pictures. The first edition awaits.",
-    "published_at": "2026-07-06T12:00:00Z"
-  },
-  {
     "id": "f47850db-0c54-4097-b4ca-b1c0b92c770a",
     "type": "article",
     "title": "When All Doors Are Closed",
