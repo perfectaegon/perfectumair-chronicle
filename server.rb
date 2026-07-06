@@ -8,6 +8,7 @@ require "securerandom"
 require "time"
 require "digest"
 require "open3"
+require_relative "lib/github_archive"
 
 ROOT = File.expand_path(__dir__)
 PUBLIC_DIR = File.join(ROOT, "public")
@@ -93,12 +94,48 @@ end
 
 ensure_data_store!
 
+ARCHIVE = GithubArchive.new(
+  token: ENV["GITHUB_TOKEN"],
+  repo: ENV.fetch("GITHUB_REPO", "perfectaegon/ok-mairr-chronicle"),
+  branch: ENV.fetch("GITHUB_BRANCH", "main")
+)
+
+def archive_to_github!(repo_path, bytes, message)
+  return unless ARCHIVE.enabled?
+
+  ARCHIVE.push(repo_path, bytes, message)
+rescue StandardError => e
+  warn "GitHub archive warning: #{e.message}"
+  raise "Could not save content permanently: #{e.message}"
+end
+
+def archive_delete!(repo_path, message)
+  return unless ARCHIVE.enabled?
+
+  ARCHIVE.delete(repo_path, message)
+rescue StandardError => e
+  warn "GitHub archive warning: #{e.message}"
+end
+
+def persist_upload(filename)
+  path = File.join(UPLOAD_DIR, filename)
+  return unless File.exist?(path)
+
+  archive_to_github!(
+    "data/uploads/#{filename}",
+    File.binread(path),
+    "Archive upload #{filename}"
+  )
+end
+
 def load_posts
   load_json(POSTS_FILE, [])
 end
 
 def save_posts(posts)
+  payload = JSON.pretty_generate(posts)
   save_json(POSTS_FILE, posts)
+  archive_to_github!("data/posts.json", payload, "Update chronicle posts")
 end
 
 def load_sessions
@@ -298,6 +335,7 @@ def store_photo(file_bytes, original_name)
     stored_name = "#{id}#{extension}"
     stored_path = File.join(UPLOAD_DIR, stored_name)
     File.binwrite(stored_path, file_bytes)
+    persist_upload(stored_name)
 
     return {
       "filename" => stored_name,
@@ -318,6 +356,7 @@ def store_photo(file_bytes, original_name)
     raise "Could not process photo format. Try JPG or PNG, or re-upload from your phone."
   end
   File.delete(temp_path)
+  persist_upload(stored_name)
 
   {
     "filename" => stored_name,
@@ -348,6 +387,7 @@ def store_media(file, type)
   stored_name = "#{id}#{extension}"
   stored_path = File.join(UPLOAD_DIR, stored_name)
   File.binwrite(stored_path, file_bytes)
+  persist_upload(stored_name)
 
   {
     "filename" => stored_name,
@@ -363,8 +403,10 @@ def delete_post(post_id)
   return false unless post
 
   if post["filename"]
-    path = File.join(UPLOAD_DIR, post["filename"])
+    filename = post["filename"]
+    path = File.join(UPLOAD_DIR, filename)
     File.delete(path) if File.exist?(path)
+    archive_delete!("data/uploads/#{filename}", "Remove upload #{filename}")
   end
 
   posts.reject! { |entry| entry["id"] == post_id }
@@ -626,4 +668,9 @@ trap("INT") { server.shutdown }
 
 puts "The ok.mairr Chronicle running at http://#{HOST}:#{PORT}"
 puts "Editor's desk (admin): http://#{HOST}:#{PORT}/admin"
+if ARCHIVE.enabled?
+  puts "Content archive: GitHub (#{ENV.fetch('GITHUB_REPO', 'perfectaegon/ok-mairr-chronicle')})"
+else
+  warn "WARNING: GITHUB_TOKEN is not set. Published content will be lost on redeploy."
+end
 server.start

@@ -2,14 +2,10 @@ services:
   - type: web
     name: ok-mairr-chronicle
     runtime: ruby
-    plan: starter
+    plan: free
     buildCommand: bundle install
     startCommand: bundle exec ruby server.rb
     healthCheckPath: /
-    disk:
-      name: chronicle-data
-      mountPath: /opt/render/project/src/data
-      sizeGB: 1
     envVars:
       - key: HOST
         value: "0.0.0.0"
@@ -19,3 +15,5 @@ services:
         value: "1"
       - key: SESSION_HOURS
         value: "168"
+      - key: GITHUB_REPO
+        value: "perfectaegon/ok-mairr-chronicle"
