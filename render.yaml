@@ -3,7 +3,7 @@ services:
     name: ok-mairr-chronicle
     runtime: ruby
     plan: free
-    buildCommand: bundle install
+    buildCommand: apt-get update && apt-get install -y imagemagick libheif1 && bundle install
     startCommand: bundle exec ruby server.rb
     healthCheckPath: /
     envVars:

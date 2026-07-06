@@ -137,6 +137,38 @@ function setupDropzone(dropzoneId, inputId, filenameId) {
 setupDropzone("photo-dropzone", "photo-input", "photo-filename");
 setupDropzone("video-dropzone", "video-input", "video-filename");
 
+function isHeicPhoto(file) {
+  const name = file.name.toLowerCase();
+  const type = (file.type || "").toLowerCase();
+  return (
+    type === "image/heic" ||
+    type === "image/heif" ||
+    name.endsWith(".heic") ||
+    name.endsWith(".heif")
+  );
+}
+
+async function preparePhotoFile(file) {
+  if (!isHeicPhoto(file) || typeof heic2any !== "function") {
+    return file;
+  }
+
+  setStatus(publishStatus, "Converting iPhone photo...", "");
+
+  const converted = await heic2any({
+    blob: file,
+    toType: "image/jpeg",
+    quality: 0.92,
+  });
+
+  const blob = Array.isArray(converted) ? converted[0] : converted;
+  const baseName = file.name.replace(/\.[^.]+$/, "") || "photo";
+  return new File([blob], `${baseName}.jpg`, {
+    type: "image/jpeg",
+    lastModified: Date.now(),
+  });
+}
+
 async function uploadMedia(form, type, titleId, captionId, inputId) {
   const fileInput = document.getElementById(inputId);
   if (!fileInput.files.length) {
@@ -144,11 +176,21 @@ async function uploadMedia(form, type, titleId, captionId, inputId) {
     return;
   }
 
+  let file = fileInput.files[0];
+  if (type === "photo") {
+    try {
+      file = await preparePhotoFile(file);
+    } catch {
+      setStatus(publishStatus, "Could not process this photo. Try again or use JPG/PNG.", "err");
+      return;
+    }
+  }
+
   setStatus(publishStatus, "Uploading...", "");
 
   const formData = new FormData();
   formData.append("type", type);
-  formData.append("file", fileInput.files[0]);
+  formData.append("file", file);
   formData.append("title", document.getElementById(titleId).value.trim());
   formData.append("caption", document.getElementById(captionId).value.trim());
 

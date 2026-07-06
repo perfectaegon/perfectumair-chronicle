@@ -72,10 +72,10 @@
 
           <form id="photo-form" class="publish-form hidden">
             <label class="dropzone" id="photo-dropzone" for="photo-input">
-              <input id="photo-input" name="file" type="file" accept="image/jpeg,image/png,image/webp,image/gif" hidden />
+              <input id="photo-input" name="file" type="file" accept="image/*,.heic,.heif" hidden />
               <span class="dropzone-icon">📷</span>
               <p>Drop a photograph here or choose a file</p>
-              <span class="dropzone-hint">JPG, PNG, WebP, or GIF · up to 15 MB</span>
+              <span class="dropzone-hint">Any photo including iPhone HEIC/HEIF · up to 15 MB</span>
               <span class="btn-secondary">Choose file</span>
             </label>
             <p id="photo-filename" class="file-name"></p>
@@ -133,6 +133,7 @@
       </article>
     </template>
 
+    <script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
     <script src="/admin/admin.js"></script>
   </body>
 </html>

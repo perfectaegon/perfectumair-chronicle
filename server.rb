@@ -7,6 +7,7 @@ require "fileutils"
 require "securerandom"
 require "time"
 require "digest"
+require "open3"
 
 ROOT = File.expand_path(__dir__)
 PUBLIC_DIR = File.join(ROOT, "public")
@@ -20,12 +21,22 @@ SESSION_HOURS = Integer(ENV.fetch("SESSION_HOURS", 72))
 MAX_IMAGE_BYTES = 15 * 1024 * 1024
 MAX_VIDEO_BYTES = 100 * 1024 * 1024
 
-IMAGE_TYPES = {
+WEB_IMAGE_TYPES = {
   "image/jpeg" => ".jpg",
   "image/png" => ".png",
   "image/webp" => ".webp",
   "image/gif" => ".gif"
 }.freeze
+
+CONVERTIBLE_IMAGE_TYPES = {
+  "image/heic" => ".heic",
+  "image/heif" => ".heif",
+  "image/avif" => ".avif",
+  "image/tiff" => ".tiff",
+  "image/bmp" => ".bmp"
+}.freeze
+
+PHOTO_TYPES = WEB_IMAGE_TYPES.merge(CONVERTIBLE_IMAGE_TYPES).freeze
 
 VIDEO_TYPES = {
   "video/mp4" => ".mp4",
@@ -33,7 +44,7 @@ VIDEO_TYPES = {
   "video/quicktime" => ".mov"
 }.freeze
 
-EXTENSION_FOR_MIME = (IMAGE_TYPES.merge(VIDEO_TYPES)).invert.freeze
+EXTENSION_FOR_MIME = (PHOTO_TYPES.merge(VIDEO_TYPES)).invert.freeze
 
 MIME_TYPES = {
   ".jpg" => "image/jpeg",
@@ -41,6 +52,12 @@ MIME_TYPES = {
   ".png" => "image/png",
   ".webp" => "image/webp",
   ".gif" => "image/gif",
+  ".heic" => "image/heic",
+  ".heif" => "image/heif",
+  ".avif" => "image/avif",
+  ".tif" => "image/tiff",
+  ".tiff" => "image/tiff",
+  ".bmp" => "image/bmp",
   ".mp4" => "video/mp4",
   ".webm" => "video/webm",
   ".mov" => "video/quicktime",
@@ -121,7 +138,49 @@ def form_file_bytes(field)
 end
 
 def mime_for_upload(filename)
-  EXTENSION_FOR_MIME[File.extname(filename.to_s).downcase]
+  MIME_TYPES[File.extname(filename.to_s).downcase]
+end
+
+def sniff_photo_mime(file_bytes)
+  return "image/jpeg" if file_bytes.start_with?("\xFF\xD8\xFF")
+  return "image/png" if file_bytes.start_with?("\x89PNG\r\n\x1a\n")
+  return "image/gif" if file_bytes.start_with?("GIF87a", "GIF89a")
+  if file_bytes.bytesize >= 12 && file_bytes[0..3] == "RIFF" && file_bytes[8..11] == "WEBP"
+    return "image/webp"
+  end
+  return "image/bmp" if file_bytes.start_with?("BM")
+  return "image/tiff" if file_bytes.start_with?("\x49\x49\x2A\x00", "\x4D\x4D\x00\x2A")
+
+  if file_bytes.bytesize >= 12 && file_bytes[4..7] == "ftyp"
+    brand = file_bytes[8..11]
+    return "image/heic" if %w[heic heix hevc hevx hev1].include?(brand)
+    return "image/heif" if %w[mif1 msf1].include?(brand)
+    return "image/avif" if brand == "avif" || file_bytes.include?("avif")
+  end
+
+  nil
+end
+
+def detect_photo_mime(file_bytes, filename)
+  mime = mime_for_upload(filename)
+  return mime if mime && PHOTO_TYPES.key?(mime)
+
+  sniff_photo_mime(file_bytes)
+end
+
+def convert_image_to_jpeg(input_path, output_path)
+  [
+    ["magick", input_path, "-auto-orient", "-quality", "90", output_path],
+    ["convert", input_path, "-auto-orient", "-quality", "90", output_path]
+  ].each do |command|
+    _stdout, _stderr, status = Open3.capture3(*command)
+    next unless status.success?
+    next unless File.exist?(output_path) && File.size(output_path).positive?
+
+    return true
+  end
+
+  false
 end
 
 def parse_json_body(req)
@@ -216,17 +275,61 @@ def sorted_posts(posts)
   posts.sort_by { |post| post["published_at"] }.reverse
 end
 
+def store_photo(file_bytes, original_name)
+  mime = detect_photo_mime(file_bytes, original_name)
+  raise "Unsupported photo format" unless mime && PHOTO_TYPES.key?(mime)
+
+  id = SecureRandom.uuid
+
+  if WEB_IMAGE_TYPES[mime]
+    extension = WEB_IMAGE_TYPES[mime]
+    stored_name = "#{id}#{extension}"
+    stored_path = File.join(UPLOAD_DIR, stored_name)
+    File.binwrite(stored_path, file_bytes)
+
+    return {
+      "filename" => stored_name,
+      "original_name" => original_name,
+      "size" => file_bytes.bytesize,
+      "mime" => mime
+    }
+  end
+
+  extension = CONVERTIBLE_IMAGE_TYPES[mime]
+  temp_path = File.join(UPLOAD_DIR, "#{id}_tmp#{extension}")
+  stored_name = "#{id}.jpg"
+  stored_path = File.join(UPLOAD_DIR, stored_name)
+
+  File.binwrite(temp_path, file_bytes)
+  unless convert_image_to_jpeg(temp_path, stored_path)
+    File.delete(temp_path) if File.exist?(temp_path)
+    raise "Could not process photo format. Try JPG or PNG, or re-upload from your phone."
+  end
+  File.delete(temp_path)
+
+  {
+    "filename" => stored_name,
+    "original_name" => original_name,
+    "size" => File.size(stored_path),
+    "mime" => "image/jpeg"
+  }
+end
+
 def store_media(file, type)
   file_bytes = form_file_bytes(file)
-  allowed = type == "photo" ? IMAGE_TYPES : VIDEO_TYPES
   max_bytes = type == "photo" ? MAX_IMAGE_BYTES : MAX_VIDEO_BYTES
   label = type == "photo" ? "Photo" : "Video"
 
   raise "#{label} must be #{(max_bytes / (1024 * 1024))} MB or smaller" if file_bytes.bytesize > max_bytes
 
   original_name = sanitize_filename(file.filename)
+
+  if type == "photo"
+    return store_photo(file_bytes, original_name)
+  end
+
   mime = mime_for_upload(original_name)
-  extension = allowed[mime]
+  extension = VIDEO_TYPES[mime]
   raise "Unsupported #{label.downcase} format" unless extension
 
   id = SecureRandom.uuid
